@@ -1,128 +1,74 @@
 import { Types } from "mongoose";
+import { type SafeParseReturnType, type ZodIssue, z } from "zod";
 
 import { ValidationError } from "../errors/httpErrors";
 
-const ensureObject = (value: unknown): Record<string, unknown> => {
-  if (typeof value !== "object" || value === null) {
-    throw new ValidationError("Request body must be an object");
+const trimmedString = (field: string) =>
+  z
+    .string({ required_error: `${field} is required` })
+    .trim()
+    .min(1, `${field} must not be empty`);
+
+const optionalTrimmedString = (field: string) =>
+  z.preprocess(
+    (value: unknown) => {
+      if (typeof value !== "string") {
+        return undefined;
+      }
+
+      const trimmed = value.trim();
+      return trimmed === "" ? undefined : trimmed;
+    },
+    z.string().optional(),
+  );
+
+const optionalObjectId = (field: string) =>
+  z.preprocess(
+    (value: unknown) => {
+      if (typeof value !== "string") {
+        return undefined;
+      }
+
+      const trimmed = value.trim();
+      return trimmed === "" ? undefined : trimmed;
+    },
+    z
+      .string()
+      .refine((val: string) => Types.ObjectId.isValid(val), {
+        message: `${field} must be a valid id`,
+      })
+      .optional(),
+  );
+
+const createGroupSchema = z.object({
+  name: trimmedString("name"),
+  description: optionalTrimmedString("description"),
+  university: trimmedString("university"),
+});
+
+const groupQuerySchema = z.object({
+  search: optionalTrimmedString("search"),
+  university: optionalTrimmedString("university"),
+  ownerId: optionalObjectId("ownerId"),
+  memberId: optionalObjectId("memberId"),
+});
+
+export type CreateGroupRequestBody = z.infer<typeof createGroupSchema>;
+export type GroupQueryParams = z.infer<typeof groupQuerySchema>;
+
+const parseOrThrow = <T>(result: SafeParseReturnType<unknown, T>): T => {
+  if (!result.success) {
+    const message = result.error.errors.map((issue: ZodIssue) => issue.message).join(", ");
+    throw new ValidationError(message);
   }
 
-  return value as Record<string, unknown>;
+  return result.data;
 };
-
-const readRequiredString = (body: Record<string, unknown>, field: string): string => {
-  const value = body[field];
-
-  if (typeof value !== "string") {
-    throw new ValidationError(`${field} is required`);
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    throw new ValidationError(`${field} must not be empty`);
-  }
-
-  return trimmed;
-};
-
-const readOptionalString = (body: Record<string, unknown>, field: string): string | undefined => {
-  const value = body[field];
-
-  if (typeof value === "undefined") {
-    return undefined;
-  }
-
-  if (typeof value !== "string") {
-    throw new ValidationError(`${field} must be a string`);
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return undefined;
-  }
-
-  return trimmed;
-};
-
-const ensureQueryObject = (value: unknown): Record<string, unknown> => {
-  if (typeof value !== "object" || value === null) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
-};
-
-const readQueryString = (query: Record<string, unknown>, field: string): string | undefined => {
-  const value = query[field];
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-
-    if (trimmed) {
-      return trimmed;
-    }
-  }
-
-  return undefined;
-};
-
-const validateObjectId = (value: string, field: string): string => {
-  if (!Types.ObjectId.isValid(value)) {
-    throw new ValidationError(`${field} must be a valid id`);
-  }
-
-  return value;
-};
-
-export interface CreateGroupRequestBody {
-  name: string;
-  description?: string;
-  university: string;
-}
 
 export const validateCreateGroupBody = (body: unknown): CreateGroupRequestBody => {
-  const parsed = ensureObject(body);
-
-  const name = readRequiredString(parsed, "name");
-  const university = readRequiredString(parsed, "university");
-  const description = readOptionalString(parsed, "description");
-
-  return { name, university, description };
+  return parseOrThrow(createGroupSchema.safeParse(body));
 };
 
-export interface GroupQueryParams {
-  search?: string;
-  university?: string;
-  ownerId?: string;
-  memberId?: string;
-}
-
 export const validateGroupQueryParams = (query: unknown): GroupQueryParams => {
-  const parsed = ensureQueryObject(query);
-
-  const result: GroupQueryParams = {};
-
-  const search = readQueryString(parsed, "search");
-  if (search) {
-    result.search = search;
-  }
-
-  const university = readQueryString(parsed, "university");
-  if (university) {
-    result.university = university;
-  }
-
-  const ownerId = readQueryString(parsed, "ownerId");
-  if (ownerId) {
-    result.ownerId = validateObjectId(ownerId, "ownerId");
-  }
-
-  const memberId = readQueryString(parsed, "memberId");
-  if (memberId) {
-    result.memberId = validateObjectId(memberId, "memberId");
-  }
-
-  return result;
+  return parseOrThrow(groupQuerySchema.safeParse(query));
 };

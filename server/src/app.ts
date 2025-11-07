@@ -2,21 +2,36 @@ import dotenv from "dotenv";
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import morgan from "morgan";
 
-import { HttpError } from "./errors/httpErrors";
 import authRoutes from "./routes/authRoutes";
 import groupRoutes from "./routes/groupRoutes";
 import statsRoutes from "./routes/statsRoutes";
 import connectDB from "./utils/db";
 import { statsMiddleware } from "./middleware/stats";
+import { errorHandler } from "./middleware/errorHandler";
 
 dotenv.config();
 
 const app = express();
 
+const requestLogger = morgan(process.env.NODE_ENV === "production" ? "combined" : "dev");
+
+const requestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(requestLogger);
+app.use(requestLimiter);
 app.use(statsMiddleware);
 
 const clientPath = path.join(__dirname, "..", "..", "client");
@@ -30,18 +45,7 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-app.use(
-  (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error(error);
-
-    if (error instanceof HttpError) {
-      res.status(error.status).json({ message: error.message });
-      return;
-    }
-
-    res.status(500).json({ message: "Internal server error" });
-  },
-);
+app.use(errorHandler);
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3001;
 
