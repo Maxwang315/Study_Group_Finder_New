@@ -2,6 +2,10 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Production Deployment
+
+Refer to [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for Docker, Nginx, SSL, monitoring, and backup guidance.
+
 ## Available Scripts
 
 In the project directory, you can run:
