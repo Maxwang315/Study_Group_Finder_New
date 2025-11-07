@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign Up - Study Group Finder</title>
-  <link rel="stylesheet" href="styles.css" /> bidgjncewk dj
-</head> 
+  <link rel="stylesheet" href="styles.css" />
+</head>
 <body>
   <main class="container" style="max-width: 400px; text-align: center;">
     <h1>Create Account</h1>
@@ -54,6 +54,10 @@
   </main>
 
   <script>
+  const UNIVERSITY_KEY = "sgfUniversity";
+  const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+  const USERNAME_KEY = "sgfUsername";
+
   // ========== Load universities ==========
   fetch("universities.json")
     .then(response => response.json())
@@ -74,6 +78,12 @@
         option.textContent = `${u.name} (${u.country})`;
         select.appendChild(option);
       });
+
+      // Pre-select previously chosen university if available
+      const savedUniversity = localStorage.getItem(UNIVERSITY_KEY);
+      if (savedUniversity) {
+        select.value = savedUniversity;
+      }
     })
     .catch(err => {
       console.error("Error loading universities:", err);
@@ -86,12 +96,25 @@
     const pw = document.getElementById("password").value;
     const confirm = document.getElementById("confirm").value;
     const error = document.getElementById("pwError");
+    const select = document.getElementById("university");
 
     if (pw !== confirm) {
       e.preventDefault(); // stop submission
       error.style.display = "block";
     } else {
       error.style.display = "none";
+
+      const username = document.getElementById("username").value.trim();
+      const university = select.value;
+      const universityLabel = select.options[select.selectedIndex]?.textContent ?? university;
+
+      if (username) {
+        localStorage.setItem(USERNAME_KEY, username);
+      }
+      if (university) {
+        localStorage.setItem(UNIVERSITY_KEY, university);
+        localStorage.setItem(UNIVERSITY_LABEL_KEY, universityLabel);
+      }
     }
   });
 
@@ -125,13 +148,12 @@
 
   // ========== Autofill search bar when dropdown changes ==========
   select.addEventListener("change", function() {
-    const chosen = select.options[select.selectedIndex].textContent;
+    const chosen = select.options[select.selectedIndex]?.textContent ?? "";
     if (chosen && select.value !== "") {
       searchBox.value = chosen; // copy dropdown choice into search bar
     }
   });
-</script>
-
+  </script>
 
 </body>
 </html>

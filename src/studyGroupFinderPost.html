@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -13,9 +12,14 @@
       <a href="studyGroupFinderMain.html">← Homepage</a>
       <a href="studyGroupFinderGroups.html">Browse</a>
       <a href="studyGroupFinderMyGroups.html">My Groups</a>
-
     </nav>
     <h1>Post a New Study Group</h1>
+    <div class="user-context">
+      <small>Posting as</small>
+      <span class="badge" id="post-user">Guest</span>
+      <small>from</small>
+      <span class="badge" id="post-university">Select your university on sign up</span>
+    </div>
   </header>
 
   <main class="container">
@@ -33,12 +37,12 @@
 
       <div class="field-row">
         <div class="field">
-          <label for="start">Start Time</Time></label>
+          <label for="start">Start Time</label>
           <input id="start" name="start" type="datetime-local" required />
         </div>
         <div class="field">
           <label for="end">End Time (Optional)</label>
-          <input id="end" name="end" type="datetime-local" optional />
+          <input id="end" name="end" type="datetime-local" />
         </div>
       </div>
 
@@ -52,8 +56,28 @@
         <textarea id="notes" name="notes" rows="3" placeholder="Topics, prerequisites, expectations…"></textarea>
       </div>
 
+      <p style="text-align: left; color: #475569;">
+        Reminder: your post will only be visible to students from your university to keep study groups local and relevant.
+      </p>
+
       <button class="btn btn-primary" type="submit" disabled title="Will submit once backend is added">Post Group</button>
     </form>
   </main>
+
+  <script>
+    const USERNAME_KEY = "sgfUsername";
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+
+    const username = localStorage.getItem(USERNAME_KEY);
+    const universityLabel = localStorage.getItem(UNIVERSITY_LABEL_KEY) || localStorage.getItem(UNIVERSITY_KEY);
+
+    if (username) {
+      document.getElementById("post-user").textContent = username;
+    }
+    if (universityLabel) {
+      document.getElementById("post-university").textContent = universityLabel;
+    }
+  </script>
 </body>
 </html>

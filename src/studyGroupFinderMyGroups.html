@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,19 +14,34 @@
       <a href="studyGroupFinderPost.html">Post a Group</a>
     </nav>
     <h1>My Study Groups</h1>
+    <div class="user-context">
+      <small>University:</small>
+      <span class="badge" id="mygroups-university">Select your university on sign up</span>
+    </div>
   </header>
 
   <main class="container">
     <!-- Section for groups the user has posted -->
     <section class="card">
       <h2>Groups I Posted</h2>
-      <ul class="grid">
-        <li class="group-card">
+      <ul class="grid" id="posted-groups">
+        <li class="group-card" data-university="University of Waterloo">
           <div class="group-meta">
             <div><strong>Class:</strong> CS135</div>
+            <div><strong>University:</strong> University of Waterloo</div>
             <div><strong>Location:</strong> DP Library 3F</div>
             <div><strong>Time:</strong> Sep 18, 2025, 10:00–12:00</div>
             <div><strong>Max People:</strong> 4</div>
+          </div>
+          <button class="btn" disabled>Edit (coming soon)</button>
+        </li>
+        <li class="group-card" data-university="University of Toronto">
+          <div class="group-meta">
+            <div><strong>Class:</strong> CSC148</div>
+            <div><strong>University:</strong> University of Toronto</div>
+            <div><strong>Location:</strong> Bahen Centre Atrium</div>
+            <div><strong>Time:</strong> Sep 22, 2025, 18:00–20:00</div>
+            <div><strong>Max People:</strong> 5</div>
           </div>
           <button class="btn" disabled>Edit (coming soon)</button>
         </li>
@@ -37,13 +51,24 @@
     <!-- Section for groups the user has joined -->
     <section class="card" style="margin-top: 2rem;">
       <h2>Groups I Joined</h2>
-      <ul class="grid">
-        <li class="group-card">
+      <ul class="grid" id="joined-groups">
+        <li class="group-card" data-university="University of Waterloo">
           <div class="group-meta">
             <div><strong>Class:</strong> MATH135</div>
+            <div><strong>University:</strong> University of Waterloo</div>
             <div><strong>Location:</strong> MC Lounge</div>
             <div><strong>Time:</strong> Sep 20, 2025, 14:00–16:00</div>
             <div><strong>People:</strong> 3 / 5</div>
+          </div>
+          <button class="btn btn-primary" disabled>Leave Group</button>
+        </li>
+        <li class="group-card" data-university="University of Toronto">
+          <div class="group-meta">
+            <div><strong>Class:</strong> MAT135</div>
+            <div><strong>University:</strong> University of Toronto</div>
+            <div><strong>Location:</strong> Sidney Smith 2nd Floor</div>
+            <div><strong>Time:</strong> Sep 25, 2025, 12:00–13:30</div>
+            <div><strong>People:</strong> 2 / 4</div>
           </div>
           <button class="btn btn-primary" disabled>Leave Group</button>
         </li>
@@ -54,5 +79,42 @@
   <footer>
     <small>Later, this page will connect to the backend so your posted/joined groups appear here automatically.</small>
   </footer>
+
+  <script>
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+
+    const savedUniversity = localStorage.getItem(UNIVERSITY_KEY);
+    const savedUniversityLabel = localStorage.getItem(UNIVERSITY_LABEL_KEY) || savedUniversity;
+
+    if (savedUniversityLabel) {
+      document.getElementById("mygroups-university").textContent = savedUniversityLabel;
+    }
+
+    function filterGroups(listId) {
+      const list = document.getElementById(listId);
+      const items = Array.from(list.querySelectorAll(".group-card"));
+      let visible = 0;
+
+      items.forEach(item => {
+        const matchesUniversity = savedUniversity ? item.dataset.university === savedUniversity : true;
+        if (matchesUniversity) {
+          item.style.display = "";
+          visible += 1;
+        } else {
+          item.style.display = "none";
+        }
+      });
+
+      if (!visible) {
+        const message = document.createElement("li");
+        message.textContent = `No groups yet at ${savedUniversityLabel || "your university"}.`;
+        list.replaceChildren(message);
+      }
+    }
+
+    filterGroups("posted-groups");
+    filterGroups("joined-groups");
+  </script>
 </body>
 </html>
