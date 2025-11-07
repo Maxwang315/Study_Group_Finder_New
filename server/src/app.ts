@@ -5,6 +5,7 @@ import path from "path";
 
 import { HttpError } from "./errors/httpErrors";
 import authRoutes from "./routes/authRoutes";
+import groupRoutes from "./routes/groupRoutes";
 import connectDB from "./utils/db";
 
 dotenv.config();
@@ -19,6 +20,7 @@ const clientPath = path.join(__dirname, "..", "..", "client");
 app.use(express.static(clientPath));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/groups", groupRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
