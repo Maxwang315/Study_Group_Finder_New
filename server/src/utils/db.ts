@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import "../models";
+import { config } from "../config/env";
 
 const ensureConnectionEvents = () => {
   if (mongoose.connection.listeners("connected").length === 0) {
@@ -17,11 +18,7 @@ const ensureConnectionEvents = () => {
 };
 
 export const connectDB = async (): Promise<typeof mongoose> => {
-  const { MONGODB_URI } = process.env;
-
-  if (!MONGODB_URI) {
-    throw new Error("MONGODB_URI environment variable is not defined");
-  }
+  const { uri } = config.database;
 
   if (mongoose.connection.readyState === 1) {
     ensureConnectionEvents();
@@ -35,7 +32,7 @@ export const connectDB = async (): Promise<typeof mongoose> => {
     }
 
     ensureConnectionEvents();
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(uri);
     return mongoose;
   } catch (error) {
     console.error("Failed to connect to MongoDB", error);

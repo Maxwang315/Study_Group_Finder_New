@@ -1,35 +1,17 @@
 import type { CookieOptions, Response } from "express";
 
-const DEFAULT_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+import { config } from "./env";
 
-const isProduction = process.env.NODE_ENV === "production";
-
-const resolveCookieMaxAge = (): number => {
-  const raw = process.env.AUTH_COOKIE_MAX_AGE_MS;
-
-  if (!raw) {
-    return DEFAULT_COOKIE_MAX_AGE_MS;
-  }
-
-  const parsed = Number(raw);
-
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    throw new Error("AUTH_COOKIE_MAX_AGE_MS must be a positive number when provided");
-  }
-
-  return parsed;
-};
-
-export const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "sgf_session";
+export const AUTH_COOKIE_NAME = config.auth.cookie.name;
 
 const baseCookieOptions: CookieOptions = {
   httpOnly: true,
-  sameSite: isProduction ? "none" : "lax",
-  secure: isProduction,
+  sameSite: config.environment.isProduction ? "none" : "lax",
+  secure: config.environment.isProduction,
   path: "/",
 };
 
-const cookieMaxAge = resolveCookieMaxAge();
+const cookieMaxAge = config.auth.cookie.maxAgeMs;
 
 export const getAuthCookieOptions = (
   overrides: Partial<CookieOptions> = {},
@@ -48,16 +30,13 @@ export const clearAuthCookie = (res: Response): void => {
 };
 
 export const getJwtSecret = (): string => {
-  const secret = process.env.JWT_SECRET;
+  const { secret } = config.auth.jwt;
 
-  if (!secret) {
-    throw new Error("JWT_SECRET environment variable must be defined");
+  if (config.environment.isProduction && secret === "development-secret-change-me") {
+    throw new Error("JWT_SECRET environment variable must be set in production");
   }
 
   return secret;
 };
 
-const DEFAULT_JWT_EXPIRES_IN = "7d";
-
-export const getJwtExpiresIn = (): string =>
-  process.env.JWT_EXPIRES_IN ?? DEFAULT_JWT_EXPIRES_IN;
+export const getJwtExpiresIn = (): string => config.auth.jwt.expiresIn;

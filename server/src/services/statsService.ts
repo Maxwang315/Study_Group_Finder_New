@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 import StatsModel, { type StatsDocument } from "../models/stats";
+import { config } from "../config/env";
 
 type CounterField = "totalVisits" | "groupsCreated";
 
@@ -30,7 +31,7 @@ class StatsService {
   }
 
   private async setupRedis() {
-    const redisUrl = process.env.REDIS_URL;
+    const redisUrl = config.cache.redisUrl;
 
     if (!redisUrl) {
       return;
