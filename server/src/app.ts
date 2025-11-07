@@ -1,6 +1,11 @@
+import dotenv from "dotenv";
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
+
+import connectDB from "./utils/db";
+
+dotenv.config();
 
 const app = express();
 
@@ -16,8 +21,19 @@ app.get("/health", (_req, res) => {
 });
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3001;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+
+const startServer = async () => {
+  try {
+    await connectDB();
+    app.listen(port, () => {
+      console.log(`Server listening on port ${port}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+};
+
+void startServer();
 
 export default app;
