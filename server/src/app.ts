@@ -6,7 +6,9 @@ import path from "path";
 import { HttpError } from "./errors/httpErrors";
 import authRoutes from "./routes/authRoutes";
 import groupRoutes from "./routes/groupRoutes";
+import statsRoutes from "./routes/statsRoutes";
 import connectDB from "./utils/db";
+import { statsMiddleware } from "./middleware/stats";
 
 dotenv.config();
 
@@ -15,12 +17,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(statsMiddleware);
 
 const clientPath = path.join(__dirname, "..", "..", "client");
 app.use(express.static(clientPath));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/stats", statsRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });

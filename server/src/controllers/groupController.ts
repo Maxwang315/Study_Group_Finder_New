@@ -10,6 +10,7 @@ import {
 import type { GroupDocument } from "../models/group";
 import GroupModel from "../models/group";
 import { validateCreateGroupBody, validateGroupQueryParams } from "../validators/groupValidators";
+import statsService from "../services/statsService";
 
 interface SerializedGroup {
   id: string;
@@ -106,6 +107,12 @@ export const createGroup = async (req: Request, res: Response, next: NextFunctio
       university: data.university,
       members: [],
     });
+
+    try {
+      await statsService.incrementGroupsCreated();
+    } catch (statsError) {
+      console.error("Failed to increment groups created metric", statsError);
+    }
 
     res.status(201).json({ group: serializeGroup(group) });
   } catch (error) {
