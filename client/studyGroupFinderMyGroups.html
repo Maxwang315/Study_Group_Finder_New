@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Study Groups</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <nav class="topnav">
+      <a href="studyGroupFinderMain.html">Home</a>
+      <a href="studyGroupFinderGroups.html">Browse</a>
+      <a href="studyGroupFinderPost.html">Post a Group</a>
+    </nav>
+    <h1>My Study Groups</h1>
+    <div class="user-context">
+      <small>University:</small>
+      <span class="badge" id="mygroups-university">Select your university on sign up</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="myGroupsMessage" class="alert hidden" role="status" aria-live="polite"></div>
+
+    <!-- Section for groups the user has posted -->
+    <section class="card">
+      <h2>Groups I Posted</h2>
+      <ul class="grid" id="posted-groups"></ul>
+    </section>
+
+    <!-- Section for groups the user has joined -->
+    <section class="card" style="margin-top: 2rem;">
+      <h2>Groups I Joined</h2>
+      <ul class="grid" id="joined-groups"></ul>
+    </section>
+  </main>
+
+  <footer>
+    <small>Later, this page will connect to the backend so your posted/joined groups appear here automatically.</small>
+  </footer>
+
+  <script>
+    const STORAGE_USER_KEY = "sgfUser";
+    const USERNAME_KEY = "sgfUsername";
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+
+    const universityBadge = document.getElementById("mygroups-university");
+    const message = document.getElementById("myGroupsMessage");
+    const postedList = document.getElementById("posted-groups");
+    const joinedList = document.getElementById("joined-groups");
+
+    const showMessage = (type, text) => {
+      if (!text) {
+        message.classList.add("hidden");
+        message.textContent = "";
+        message.classList.remove("alert-success", "alert-error");
+        return;
+      }
+
+      message.textContent = text;
+      message.classList.remove("hidden", "alert-success", "alert-error");
+      message.classList.add(type === "success" ? "alert-success" : "alert-error");
+    };
+
+    const parseStoredUser = (raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn("Unable to parse stored user", error);
+        localStorage.removeItem(STORAGE_USER_KEY);
+        return null;
+      }
+    };
+
+    const escapeHTML = (value = "") =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const formatDateTime = (value) => {
+      if (!value) {
+        return "Unknown";
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return "Unknown";
+      }
+
+      return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    };
+
+    let currentUser = parseStoredUser(localStorage.getItem(STORAGE_USER_KEY));
+
+    const applyUser = (user) => {
+      if (!user) {
+        return;
+      }
+
+      currentUser = user;
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+
+      if (user.university) {
+        universityBadge.textContent = user.university;
+        localStorage.setItem(UNIVERSITY_KEY, user.university);
+        localStorage.setItem(UNIVERSITY_LABEL_KEY, user.university);
+      } else {
+        universityBadge.textContent = "Select your university on sign up";
+        localStorage.removeItem(UNIVERSITY_KEY);
+        localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+      }
+
+      if (user.name) {
+        localStorage.setItem(USERNAME_KEY, user.name);
+      } else {
+        localStorage.removeItem(USERNAME_KEY);
+      }
+    };
+
+    if (currentUser?.university) {
+      universityBadge.textContent = currentUser.university;
+    } else {
+      const savedUniversity = localStorage.getItem(UNIVERSITY_LABEL_KEY) || localStorage.getItem(UNIVERSITY_KEY);
+      if (savedUniversity) {
+        universityBadge.textContent = savedUniversity;
+      }
+    }
+
+    const createGroupCard = (group, options = {}) => {
+      const li = document.createElement("li");
+      li.className = "group-card";
+
+      const memberCount = (Array.isArray(group.memberIds) ? group.memberIds.length : 0) + 1;
+
+      const meta = document.createElement("div");
+      meta.className = "group-meta";
+      meta.innerHTML = `
+        <div><strong>Class:</strong> ${escapeHTML(group.name)}</div>
+        <div><strong>University:</strong> ${escapeHTML(group.university)}</div>
+        <div><strong>Created:</strong> ${formatDateTime(group.createdAt)}</div>
+        ${group.description ? `<div><strong>Details:</strong> ${escapeHTML(group.description).replace(/\n/g, "<br />")}</div>` : ""}
+        <div><strong>Members:</strong> ${memberCount}</div>
+      `;
+
+      li.appendChild(meta);
+
+      if (options.leaveAction) {
+        const button = document.createElement("button");
+        button.className = "btn btn-primary";
+        button.type = "button";
+        button.textContent = "Leave Group";
+        button.addEventListener("click", () => options.leaveAction(group, button));
+        li.appendChild(button);
+      } else {
+        const button = document.createElement("button");
+        button.className = "btn";
+        button.type = "button";
+        button.disabled = true;
+        button.textContent = options.actionLabel ?? "Edit (coming soon)";
+        li.appendChild(button);
+      }
+
+      return li;
+    };
+
+    const renderEmpty = (list, messageText) => {
+      list.innerHTML = "";
+      const item = document.createElement("li");
+      item.textContent = messageText;
+      list.appendChild(item);
+    };
+
+    const fetchUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          showMessage("error", "You must be signed in to view your study groups.");
+          currentUser = null;
+          localStorage.removeItem(STORAGE_USER_KEY);
+          localStorage.removeItem(USERNAME_KEY);
+          localStorage.removeItem(UNIVERSITY_KEY);
+          localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+          universityBadge.textContent = "Select your university on sign up";
+          return null;
+        }
+
+        const data = await response.json();
+        if (data?.user) {
+          applyUser(data.user);
+          showMessage("success", `Welcome back, ${data.user.name}!`);
+          return data.user;
+        }
+
+        showMessage("error", "Could not load your account details. Please sign in again.");
+        return null;
+      } catch (error) {
+        console.error("Failed to load user", error);
+        showMessage("error", "Network error verifying your session. Please refresh.");
+        return null;
+      }
+    };
+
+    const fetchMyGroups = async () => {
+      if (!currentUser) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/groups/mine", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          showMessage("error", "Could not load your groups. Please try again later.");
+          renderEmpty(postedList, "You have not posted any groups yet.");
+          renderEmpty(joinedList, "You have not joined any groups yet.");
+          return;
+        }
+
+        const data = await response.json();
+        const groups = data?.groups ?? [];
+
+        const posted = groups.filter((group) => group.ownerId === currentUser.id);
+        const joined = groups.filter((group) => group.ownerId !== currentUser.id);
+
+        postedList.innerHTML = "";
+        joinedList.innerHTML = "";
+
+        if (!posted.length) {
+          renderEmpty(postedList, "You have not posted any groups yet.");
+        } else {
+          posted.forEach((group) => {
+            postedList.appendChild(createGroupCard(group));
+          });
+        }
+
+        if (!joined.length) {
+          renderEmpty(joinedList, "You have not joined any groups yet.");
+        } else {
+          joined.forEach((group) => {
+            joinedList.appendChild(
+              createGroupCard(group, {
+                leaveAction: async (targetGroup, button) => {
+                  button.disabled = true;
+                  const originalText = button.textContent;
+                  button.textContent = "Leaving…";
+
+                  try {
+                    const response = await fetch(`/api/groups/${targetGroup.id}/leave`, {
+                      method: "DELETE",
+                      credentials: "include",
+                    });
+
+                    const payload = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                      const messageText = payload?.message || "Could not leave the group.";
+                      showMessage("error", messageText);
+                      button.disabled = false;
+                      button.textContent = originalText;
+                      return;
+                    }
+
+                    showMessage("success", `You left ${targetGroup.name}.`);
+                    button.closest("li")?.remove();
+
+                    if (!joinedList.querySelector("li")) {
+                      renderEmpty(joinedList, "You have not joined any groups yet.");
+                    }
+                  } catch (error) {
+                    console.error("Failed to leave group", error);
+                    showMessage("error", "Network error leaving the group. Please try again.");
+                    button.disabled = false;
+                    button.textContent = originalText;
+                  }
+                },
+                actionLabel: "Leave Group",
+              }),
+            );
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load groups", error);
+        showMessage("error", "Network error loading your groups. Please refresh.");
+        renderEmpty(postedList, "You have not posted any groups yet.");
+        renderEmpty(joinedList, "You have not joined any groups yet.");
+      }
+    };
+
+    const init = async () => {
+      if (!currentUser) {
+        currentUser = await fetchUser();
+      } else {
+        await fetchUser();
+      }
+
+      if (currentUser) {
+        await fetchMyGroups();
+      }
+    };
+
+    void init();
+  </script>
+</body>
+</html>
