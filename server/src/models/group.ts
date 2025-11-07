@@ -4,6 +4,7 @@ export interface Group {
   name: string;
   description?: string;
   owner: Types.ObjectId;
+  members: Types.ObjectId[];
   university: string;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +28,15 @@ const GroupSchema = new Schema<GroupDocument>(
       ref: "User",
       required: true,
     },
+    members: {
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
+    },
     university: {
       type: String,
       required: true,
@@ -40,6 +50,8 @@ const GroupSchema = new Schema<GroupDocument>(
 
 GroupSchema.index({ name: "text", description: "text" });
 GroupSchema.index({ university: 1 });
+GroupSchema.index({ owner: 1 });
+GroupSchema.index({ members: 1 });
 
 export const GroupModel = model<GroupDocument>("Group", GroupSchema);
 
