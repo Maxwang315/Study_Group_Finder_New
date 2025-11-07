@@ -1,0 +1,93 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Browse Study Groups</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <nav class="topnav">
+      <a href="studyGroupFinderMain.html">← Homepage</a>
+      <a href="studyGroupFinderPost.html">Post a Group</a>
+      <a href="studyGroupFinderMyGroups.html">My Groups</a>
+    </nav>
+    <h1 id="page-heading">All Study Groups</h1>
+  </header>
+
+  <main class="container">
+    <!-- Same GET search form so users can refine on this page too -->
+    <form class="searchbar" action="studyGroupFinderGroups.html" method="get">
+      <label for="q" class="sr-only">Find a Specific Course</label>
+      <input id="q" name="q" type="text" placeholder="Filter by course (e.g., MATH135)" />
+      <button class="btn" type="submit">Search</button>
+      <a class="btn" href="studyGroupFinderGroups.html">Clear</a>
+    </form>
+
+    <!-- Placeholder list; we’ll replace with real data later -->
+    <ul id="group-list" class="grid">
+      <li class="group-card">
+        <div class="group-meta">
+          <div><strong>Class:</strong> CS135</div>
+          <div><strong>Location:</strong> DP Library 3F</div>
+          <div><strong>Time:</strong> Sep 15, 2025, 14:00–16:00</div>
+          <div><strong>People:</strong> 2 / 4</div>
+        </div>
+        <form action="#" method="post" class="join-form">
+          <input type="hidden" name="group_id" value="1" />
+          <button class="btn btn-primary" type="submit" disabled title="Join will work once backend is added">Join</button>
+        </form>
+      </li>
+
+      <li class="group-card">
+        <div class="group-meta">
+          <div><strong>Class:</strong> MATH135</div>
+          <div><strong>Location:</strong> MC 4th floor lounge</div>
+          <div><strong>Time:</strong> Sep 16, 2025, 10:00–12:00</div>
+          <div><strong>People:</strong> 3 / 5</div>
+        </div>
+        <form action="#" method="post" class="join-form">
+          <input type="hidden" name="group_id" value="2" />
+          <button class="btn btn-primary" type="submit" disabled>Join</button>
+        </form>
+      </li>
+    </ul>
+  </main>
+
+  <footer>
+    <small>Tip: Searching uses the “q” query parameter (e.g., groups.html?q=CS135).</small>
+  </footer>
+
+  <!-- JavaScript for heading + filtering -->
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const heading = document.getElementById("page-heading");
+    const groups = document.querySelectorAll("#group-list .group-card");
+
+    if (q) {
+      // Update heading
+      heading.textContent = `Study Groups for ${q.toUpperCase()}`;
+
+      // Filter group list
+      let found = false;
+      groups.forEach(group => {
+        const className = group.querySelector(".group-meta strong").nextSibling.textContent.trim();
+        if (className.toLowerCase().includes(q.toLowerCase())) {
+          group.style.display = ""; // keep visible
+          found = true;
+        } else {
+          group.style.display = "none"; // hide
+        }
+      });
+
+      if (!found) {
+        document.getElementById("group-list").innerHTML =
+          `<li>No study groups found for "${q}". Looks like it's a solo mission o7</li>`;
+      }
+    }
+  </script>
+</body>
+</html>

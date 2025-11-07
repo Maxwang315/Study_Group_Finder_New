@@ -1,0 +1,40 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Study Group Finder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>University Study Group Finder</h1>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Good Luck on All Your Classes!</h2>
+
+      <div class="actions">
+        <a class="btn " href="studyGroupFinderGroups.html">Browse Study Groups</a>
+
+        <!-- Search sends a GET to groups.html?q=... so the results page can filter -->
+        <form class="inline-form" action="studyGroupFinderGroups.html" method="get" aria-label="Search groups by course">
+          <label for="q" class="sr-only">Find a Specific Course</label>
+          <input id="q" name="q" type="text" placeholder="Search by course (e.g., CS135)" required />
+          <button class="btn" type="submit">Search</button>
+        </form>
+
+        <a class="btn btn-primary" href="studyGroupFinderPost.html">Post a Study Group</a>
+        <a class="btn" href="studyGroupFinderMyGroups.html">My Groups</a>
+
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025 UWaterloo Study Group Finder by Max Wang & Lukas Li</small>
+  </footer>
+</body>
+</html>

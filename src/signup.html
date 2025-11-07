@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign Up - Study Group Finder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head> 
+<body>
+  <main class="container" style="max-width: 400px; text-align: center;">
+    <h1>Create Account</h1>
+    <form class="card form" id="signupForm" action="login.html" method="get">
+      <!-- Username -->
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" required />
+      </div>
+
+      <!-- Email -->
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required />
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="field">
+        <label for="confirm">Confirm Password</label>
+        <input id="confirm" name="confirm" type="password" required />
+        <small id="pwError" style="color: red; display: none;">❌ Passwords do not match</small>
+      </div>
+
+      <!-- University selection -->
+      <div class="field">
+        <label for="universitySearch">University</label>
+        <input type="text" id="universitySearch" placeholder="Type to filter universities..." />
+        <select id="university" name="university" required>
+          <option value="">-- Select your university --</option>
+        </select>
+      </div>
+
+      <!-- Submit -->
+      <button class="btn btn-primary" type="submit">Sign Up</button>
+    </form>
+
+    <p style="margin-top: 1rem;">
+      Already have an account? <a href="login.html">Login</a>
+    </p>
+  </main>
+
+  <script>
+  // ========== Load universities ==========
+  fetch("universities.json")
+    .then(response => response.json())
+    .then(data => {
+      const select = document.getElementById("university");
+      select.innerHTML = "<option value=''>-- Select your university --</option>";
+
+      // Filter only Canada + US
+      const filtered = data.filter(u => u.alpha_two_code === "CA" || u.alpha_two_code === "US");
+
+      // Sort alphabetically
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+      // Add options
+      filtered.forEach(u => {
+        const option = document.createElement("option");
+        option.value = u.name;
+        option.textContent = `${u.name} (${u.country})`;
+        select.appendChild(option);
+      });
+    })
+    .catch(err => {
+      console.error("Error loading universities:", err);
+      document.getElementById("university").innerHTML =
+        "<option value=''>Could not load universities</option>";
+    });
+
+  // ========== Password confirmation ==========
+  document.getElementById("signupForm").addEventListener("submit", function(e) {
+    const pw = document.getElementById("password").value;
+    const confirm = document.getElementById("confirm").value;
+    const error = document.getElementById("pwError");
+
+    if (pw !== confirm) {
+      e.preventDefault(); // stop submission
+      error.style.display = "block";
+    } else {
+      error.style.display = "none";
+    }
+  });
+
+  // ========== University filter ==========
+  const searchBox = document.getElementById("universitySearch");
+  const select = document.getElementById("university");
+
+  searchBox.addEventListener("input", function() {
+    const filter = this.value.toLowerCase();
+    const options = select.querySelectorAll("option");
+
+    let firstMatch = null;
+
+    options.forEach(opt => {
+      if (opt.value === "") return; // skip placeholder
+      if (opt.textContent.toLowerCase().includes(filter)) {
+        opt.style.display = "";
+        if (!firstMatch) firstMatch = opt; // remember the first visible match
+      } else {
+        opt.style.display = "none";
+      }
+    });
+
+    // Auto-select the first match
+    if (firstMatch) {
+      select.value = firstMatch.value;
+    } else {
+      select.value = ""; // reset if nothing matches
+    }
+  });
+
+  // ========== Autofill search bar when dropdown changes ==========
+  select.addEventListener("change", function() {
+    const chosen = select.options[select.selectedIndex].textContent;
+    if (chosen && select.value !== "") {
+      searchBox.value = chosen; // copy dropdown choice into search bar
+    }
+  });
+</script>
+
+
+</body>
+</html>
