@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - Study Group Finder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container" style="max-width: 400px; text-align: center;">
+    <h1>Login</h1>
+    <form class="card form" id="loginForm" novalidate>
+      <div id="loginMessage" class="alert hidden" role="alert" aria-live="polite"></div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required />
+      </div>
+      <button class="btn btn-primary" type="submit" id="loginSubmit">Login</button>
+    </form>
+
+    <p class="user-context">
+      <small>University:</small>
+      <span class="badge" id="login-university">Select your university on sign up</span>
+    </p>
+
+    <p style="margin-top: 1rem;">
+      Don’t have an account? <a href="signup.html">Sign up!</a>
+    </p>
+  </main>
+
+  <script>
+    const STORAGE_USER_KEY = "sgfUser";
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+    const USERNAME_KEY = "sgfUsername";
+
+    const loginBadge = document.getElementById("login-university");
+    const parseStoredUser = (raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn("Unable to parse stored user", error);
+        localStorage.removeItem(STORAGE_USER_KEY);
+        return null;
+      }
+    };
+
+    const savedUser = parseStoredUser(localStorage.getItem(STORAGE_USER_KEY));
+
+    const savedEmail = savedUser?.email;
+    if (savedEmail) {
+      document.getElementById("email").value = savedEmail;
+    }
+
+    const savedName = savedUser?.name ?? localStorage.getItem(USERNAME_KEY);
+    if (savedName) {
+      localStorage.setItem(USERNAME_KEY, savedName);
+    }
+
+    const savedUniversityLabel = localStorage.getItem(UNIVERSITY_LABEL_KEY) || savedUser?.university;
+    if (savedUniversityLabel) {
+      loginBadge.textContent = savedUniversityLabel;
+    }
+
+    const loginForm = document.getElementById("loginForm");
+    const loginMessage = document.getElementById("loginMessage");
+    const loginSubmit = document.getElementById("loginSubmit");
+
+    const showMessage = (type, text) => {
+      loginMessage.textContent = text;
+      loginMessage.classList.remove("hidden", "alert-success", "alert-error");
+      loginMessage.classList.add(type === "success" ? "alert-success" : "alert-error");
+    };
+
+    const clearMessage = () => {
+      loginMessage.textContent = "";
+      loginMessage.classList.add("hidden");
+      loginMessage.classList.remove("alert-success", "alert-error");
+    };
+
+    const setLoading = (loading) => {
+      loginSubmit.disabled = loading;
+      loginSubmit.textContent = loading ? "Logging in…" : "Login";
+    };
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearMessage();
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        showMessage("error", "Please provide both email and password.");
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message = data?.message || "Invalid email or password.";
+          showMessage("error", message);
+          return;
+        }
+
+        const user = data?.user;
+
+        if (user) {
+          localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+
+          if (user.name) {
+            localStorage.setItem(USERNAME_KEY, user.name);
+          } else {
+            localStorage.removeItem(USERNAME_KEY);
+          }
+
+          if (user.university) {
+            localStorage.setItem(UNIVERSITY_KEY, user.university);
+            localStorage.setItem(UNIVERSITY_LABEL_KEY, user.university);
+            loginBadge.textContent = user.university;
+          } else {
+            localStorage.removeItem(UNIVERSITY_KEY);
+            localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+            loginBadge.textContent = "Select your university on sign up";
+          }
+        }
+
+        showMessage("success", "Welcome back! Redirecting…");
+
+        setTimeout(() => {
+          window.location.href = "studyGroupFinderMain.html";
+        }, 700);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Network error while logging in. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>

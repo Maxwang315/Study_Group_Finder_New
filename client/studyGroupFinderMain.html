@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Study Group Finder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>University Study Group Finder</h1>
+    <div class="user-context">
+      <small>Signed in as</small>
+      <span class="badge" id="current-user">Guest</span>
+      <small>from</small>
+      <span class="badge" id="current-university">Select your university on sign up</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div id="sessionMessage" class="alert hidden" role="status" aria-live="polite"></div>
+      <h2>Good Luck on All Your Classes!</h2>
+      <p>Browse or post study groups with classmates at your university.</p>
+
+      <div class="actions">
+        <a class="btn" href="studyGroupFinderGroups.html">Browse Study Groups</a>
+
+        <!-- Search sends a GET to groups.html?q=... so the results page can filter -->
+        <form class="inline-form" action="studyGroupFinderGroups.html" method="get" aria-label="Search groups by course">
+          <label for="q" class="sr-only">Find a Specific Course</label>
+          <input id="q" name="q" type="text" placeholder="Search by course (e.g., CS135)" required />
+          <button class="btn" type="submit">Search</button>
+        </form>
+
+        <a class="btn btn-primary" href="studyGroupFinderPost.html">Post a Study Group</a>
+        <a class="btn" href="studyGroupFinderMyGroups.html">My Groups</a>
+      </div>
+
+      <p style="margin-top: 1.5rem; color: #334155;">
+        Tip: you’ll only see posts created by students at your university, and your posts are limited to classmates too.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025 Study Group Finder. Posts are visible only within your university community.</small>
+  </footer>
+
+  <script>
+    const STORAGE_USER_KEY = "sgfUser";
+    const USERNAME_KEY = "sgfUsername";
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+
+    const userBadge = document.getElementById("current-user");
+    const universityBadge = document.getElementById("current-university");
+    const sessionMessage = document.getElementById("sessionMessage");
+
+    const showMessage = (type, text) => {
+      if (!text) {
+        sessionMessage.classList.add("hidden");
+        sessionMessage.textContent = "";
+        sessionMessage.classList.remove("alert-error", "alert-success");
+        return;
+      }
+
+      sessionMessage.textContent = text;
+      sessionMessage.classList.remove("hidden", "alert-error", "alert-success");
+      sessionMessage.classList.add(type === "success" ? "alert-success" : "alert-error");
+    };
+
+    const parseStoredUser = (raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn("Failed to parse stored user", error);
+        localStorage.removeItem(STORAGE_USER_KEY);
+        return null;
+      }
+    };
+
+    const applyUser = (user) => {
+      if (!user) {
+        userBadge.textContent = "Guest";
+        universityBadge.textContent = "Select your university on sign up";
+        return;
+      }
+
+      if (user.name) {
+        userBadge.textContent = user.name;
+        localStorage.setItem(USERNAME_KEY, user.name);
+      } else {
+        userBadge.textContent = "Guest";
+        localStorage.removeItem(USERNAME_KEY);
+      }
+
+      if (user.university) {
+        universityBadge.textContent = user.university;
+        localStorage.setItem(UNIVERSITY_KEY, user.university);
+        localStorage.setItem(UNIVERSITY_LABEL_KEY, user.university);
+      } else {
+        universityBadge.textContent = "Select your university on sign up";
+        localStorage.removeItem(UNIVERSITY_KEY);
+        localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+      }
+
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+    };
+
+    const storedUser =
+      parseStoredUser(localStorage.getItem(STORAGE_USER_KEY)) ||
+      (localStorage.getItem(USERNAME_KEY)
+        ? {
+            name: localStorage.getItem(USERNAME_KEY),
+            university:
+              localStorage.getItem(UNIVERSITY_LABEL_KEY) || localStorage.getItem(UNIVERSITY_KEY) || undefined,
+          }
+        : null);
+
+    if (storedUser) {
+      applyUser(storedUser);
+    }
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          if (!storedUser) {
+            showMessage("error", "You are not signed in. Please log in to manage your study groups.");
+          }
+          localStorage.removeItem(STORAGE_USER_KEY);
+          localStorage.removeItem(USERNAME_KEY);
+          localStorage.removeItem(UNIVERSITY_KEY);
+          localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+          userBadge.textContent = "Guest";
+          universityBadge.textContent = "Select your university on sign up";
+          return;
+        }
+
+        const data = await response.json();
+        if (data?.user) {
+          applyUser(data.user);
+          showMessage("success", `Signed in as ${data.user.name}`);
+        }
+      } catch (error) {
+        console.error("Failed to load session", error);
+        showMessage("error", "Unable to verify your session. Some actions may fail until you reconnect.");
+      }
+    };
+
+    void loadSession();
+  </script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Browse Study Groups</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <nav class="topnav">
+      <a href="studyGroupFinderMain.html">← Homepage</a>
+      <a href="studyGroupFinderPost.html">Post a Group</a>
+      <a href="studyGroupFinderMyGroups.html">My Groups</a>
+    </nav>
+    <h1 id="page-heading">All Study Groups</h1>
+    <div class="user-context">
+      <small>Viewing groups for</small>
+      <span class="badge" id="groups-university">All universities</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="groupsMessage" class="alert hidden" role="status" aria-live="polite"></div>
+
+    <form class="searchbar" action="studyGroupFinderGroups.html" method="get">
+      <label for="q" class="sr-only">Find a Specific Course</label>
+      <input id="q" name="q" type="text" placeholder="Filter by course (e.g., MATH135)" />
+      <button class="btn" type="submit">Search</button>
+      <a class="btn" href="studyGroupFinderGroups.html">Clear</a>
+    </form>
+
+    <ul id="group-list" class="grid" aria-live="polite" aria-busy="false"></ul>
+  </main>
+
+  <footer>
+    <small>Tip: Searching uses the “q” query parameter (e.g., groups.html?q=CS135).</small>
+  </footer>
+
+  <!-- JavaScript for heading + filtering -->
+  <script>
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+    const USERNAME_KEY = "sgfUsername";
+
+    const STORAGE_USER_KEY = "sgfUser";
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const heading = document.getElementById("page-heading");
+    const groupList = document.getElementById("group-list");
+    const badge = document.getElementById("groups-university");
+    const message = document.getElementById("groupsMessage");
+    const searchInput = document.getElementById("q");
+
+    if (q) {
+      searchInput.value = q;
+    }
+
+    const showMessage = (type, text) => {
+      if (!text) {
+        message.classList.add("hidden");
+        message.textContent = "";
+        message.classList.remove("alert-success", "alert-error");
+        return;
+      }
+
+      message.textContent = text;
+      message.classList.remove("hidden", "alert-success", "alert-error");
+      message.classList.add(type === "success" ? "alert-success" : "alert-error");
+    };
+
+    const setLoading = (isLoading) => {
+      groupList.setAttribute("aria-busy", isLoading ? "true" : "false");
+    };
+
+    const parseStoredUser = (raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn("Unable to parse stored user", error);
+        localStorage.removeItem(STORAGE_USER_KEY);
+        return null;
+      }
+    };
+
+    const escapeHTML = (value = "") =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const formatDateTime = (value) => {
+      if (!value) {
+        return "Unknown";
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return "Unknown";
+      }
+
+      return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    };
+
+    let currentUser =
+      parseStoredUser(localStorage.getItem(STORAGE_USER_KEY)) ||
+      (localStorage.getItem(USERNAME_KEY)
+        ? {
+            name: localStorage.getItem(USERNAME_KEY),
+            university:
+              localStorage.getItem(UNIVERSITY_LABEL_KEY) || localStorage.getItem(UNIVERSITY_KEY) || undefined,
+          }
+        : null);
+
+    const applyUser = (user) => {
+      if (user?.university) {
+        badge.textContent = user.university;
+        localStorage.setItem(UNIVERSITY_KEY, user.university);
+        localStorage.setItem(UNIVERSITY_LABEL_KEY, user.university);
+      } else {
+        badge.textContent = "All universities";
+        localStorage.removeItem(UNIVERSITY_KEY);
+        localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+      }
+
+      if (user?.name) {
+        localStorage.setItem(USERNAME_KEY, user.name);
+      } else {
+        localStorage.removeItem(USERNAME_KEY);
+      }
+
+      if (user) {
+        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+      }
+
+      currentUser = user ?? currentUser;
+    };
+
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          if (!currentUser) {
+            showMessage("error", "Sign in to join study groups and see your personalized list.");
+          }
+          currentUser = null;
+          badge.textContent = "All universities";
+          localStorage.removeItem(STORAGE_USER_KEY);
+          localStorage.removeItem(UNIVERSITY_KEY);
+          localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+          localStorage.removeItem(USERNAME_KEY);
+          return null;
+        }
+
+        const data = await response.json();
+        if (data?.user) {
+          applyUser(data.user);
+          showMessage("success", `Showing study groups${data.user.university ? ` at ${data.user.university}` : ""}.`);
+          return data.user;
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Failed to fetch current user", error);
+        showMessage("error", "Unable to verify your account. Some actions may be unavailable.");
+        return null;
+      }
+    };
+
+    if (currentUser?.university) {
+      badge.textContent = currentUser.university;
+    }
+
+    if (q) {
+      heading.textContent = `Study Groups for ${q.toUpperCase()}`;
+    } else if (currentUser?.university) {
+      heading.textContent = `Study Groups at ${currentUser.university}`;
+    }
+
+    const renderEmpty = (searchTerm, universityLabel) => {
+      groupList.innerHTML = "";
+      const li = document.createElement("li");
+      li.textContent = `No study groups found${searchTerm ? ` for "${searchTerm}"` : ""} at ${universityLabel || "your university"}.`;
+      groupList.appendChild(li);
+    };
+
+    const renderGroups = (groups) => {
+      groupList.innerHTML = "";
+
+      if (!groups?.length) {
+        renderEmpty(q, currentUser?.university || localStorage.getItem(UNIVERSITY_LABEL_KEY));
+        return;
+      }
+
+      groups.forEach((group) => {
+        const li = document.createElement("li");
+        li.className = "group-card";
+
+        const meta = document.createElement("div");
+        meta.className = "group-meta";
+        const memberCount = (Array.isArray(group.memberIds) ? group.memberIds.length : 0) + 1; // include owner
+
+        meta.innerHTML = `
+          <div><strong>Class:</strong> ${escapeHTML(group.name)}</div>
+          <div><strong>University:</strong> ${escapeHTML(group.university)}</div>
+          <div><strong>Created:</strong> ${formatDateTime(group.createdAt)}</div>
+          ${group.description ? `<div><strong>Details:</strong> ${escapeHTML(group.description).replace(/\n/g, "<br />")}</div>` : ""}
+          <div><strong>Members:</strong> ${memberCount}${currentUser && group.ownerId === currentUser.id ? " (you own this)" : ""}</div>
+        `;
+
+        const actions = document.createElement("div");
+        const button = document.createElement("button");
+        button.className = "btn btn-primary";
+        button.type = "button";
+        button.textContent = "Join";
+
+        const isOwner = currentUser && group.ownerId === currentUser.id;
+        const isMember = currentUser && group.memberIds.includes(currentUser.id);
+
+        if (!currentUser) {
+          button.disabled = true;
+          button.title = "Log in to join study groups";
+        } else if (isOwner) {
+          button.disabled = true;
+          button.textContent = "You are the owner";
+        } else if (isMember) {
+          button.disabled = true;
+          button.textContent = "Already joined";
+        }
+
+        button.addEventListener("click", async () => {
+          if (!currentUser) {
+            showMessage("error", "You need to sign in before joining a group.");
+            return;
+          }
+
+          button.disabled = true;
+          button.textContent = "Joining…";
+
+          try {
+            const response = await fetch(`/api/groups/${group.id}/join`, {
+              method: "POST",
+              credentials: "include",
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+              const messageText = data?.message || "Could not join the study group.";
+              showMessage("error", messageText);
+              button.disabled = false;
+              button.textContent = "Join";
+              return;
+            }
+
+            showMessage("success", `You joined ${group.name}!`);
+            button.textContent = "Already joined";
+            button.disabled = true;
+            void fetchGroups();
+          } catch (error) {
+            console.error("Failed to join group", error);
+            showMessage("error", "Network error joining the group. Please try again.");
+            button.disabled = false;
+            button.textContent = "Join";
+          }
+        });
+
+        actions.appendChild(button);
+        li.appendChild(meta);
+        li.appendChild(actions);
+        groupList.appendChild(li);
+      });
+    };
+
+    const fetchGroups = async () => {
+      setLoading(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (q) {
+          queryParams.set("search", q);
+        }
+
+        const universityFilter = currentUser?.university;
+        if (universityFilter) {
+          queryParams.set("university", universityFilter);
+        }
+
+        const response = await fetch(`/api/groups${queryParams.toString() ? `?${queryParams.toString()}` : ""}`, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          showMessage("error", "Could not load study groups. Please try again later.");
+          renderEmpty(q, currentUser?.university);
+          return;
+        }
+
+        const data = await response.json();
+        renderGroups(data?.groups ?? []);
+      } catch (error) {
+        console.error("Failed to fetch groups", error);
+        showMessage("error", "Network error loading study groups. Please retry.");
+        renderEmpty(q, currentUser?.university);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchCurrentUser().finally(fetchGroups);
+  </script>
+</body>
+</html>

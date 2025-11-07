@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Post a Study Group</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <nav class="topnav">
+      <a href="studyGroupFinderMain.html">← Homepage</a>
+      <a href="studyGroupFinderGroups.html">Browse</a>
+      <a href="studyGroupFinderMyGroups.html">My Groups</a>
+    </nav>
+    <h1>Post a New Study Group</h1>
+    <div class="user-context">
+      <small>Posting as</small>
+      <span class="badge" id="post-user">Guest</span>
+      <small>from</small>
+      <span class="badge" id="post-university">Select your university on sign up</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <form class="card form" id="postForm" novalidate>
+      <div id="postMessage" class="alert hidden" role="alert" aria-live="polite"></div>
+
+      <div class="field">
+        <label for="course">Course</label>
+        <input id="course" name="course" type="text" placeholder="e.g., CS135" required />
+      </div>
+
+      <div class="field">
+        <label for="location">Location</label>
+        <input id="location" name="location" type="text" placeholder="e.g., DP Library 3F" required />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="start">Start Time</label>
+          <input id="start" name="start" type="datetime-local" required />
+        </div>
+        <div class="field">
+          <label for="end">End Time (Optional)</label>
+          <input id="end" name="end" type="datetime-local" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="max_people">Number of People Already In Group</label>
+        <input id="max_people" name="max_people" type="number" min="1" max="20" value="4" required />
+      </div>
+
+      <div class="field">
+        <label for="notes">Notes (optional)</label>
+        <textarea id="notes" name="notes" rows="3" placeholder="Topics, prerequisites, expectations…"></textarea>
+      </div>
+
+      <p style="text-align: left; color: #475569;">
+        Reminder: your post will only be visible to students from your university to keep study groups local and relevant.
+      </p>
+
+      <button class="btn btn-primary" type="submit" id="postSubmit">Post Group</button>
+    </form>
+  </main>
+
+  <script>
+    const STORAGE_USER_KEY = "sgfUser";
+    const USERNAME_KEY = "sgfUsername";
+    const UNIVERSITY_KEY = "sgfUniversity";
+    const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
+
+    const postUser = document.getElementById("post-user");
+    const postUniversity = document.getElementById("post-university");
+    const postForm = document.getElementById("postForm");
+    const postMessage = document.getElementById("postMessage");
+    const postSubmit = document.getElementById("postSubmit");
+
+    const showMessage = (type, text) => {
+      postMessage.textContent = text;
+      postMessage.classList.remove("hidden", "alert-success", "alert-error");
+      postMessage.classList.add(type === "success" ? "alert-success" : "alert-error");
+    };
+
+    const clearMessage = () => {
+      postMessage.textContent = "";
+      postMessage.classList.add("hidden");
+      postMessage.classList.remove("alert-success", "alert-error");
+    };
+
+    const setLoading = (loading) => {
+      postSubmit.disabled = loading;
+      postSubmit.textContent = loading ? "Posting…" : "Post Group";
+    };
+
+    const parseStoredUser = (raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn("Unable to parse stored user", error);
+        localStorage.removeItem(STORAGE_USER_KEY);
+        return null;
+      }
+    };
+
+    const applyUser = (user) => {
+      if (user?.name) {
+        postUser.textContent = user.name;
+        localStorage.setItem(USERNAME_KEY, user.name);
+      } else {
+        postUser.textContent = "Guest";
+        localStorage.removeItem(USERNAME_KEY);
+      }
+
+      if (user?.university) {
+        postUniversity.textContent = user.university;
+        localStorage.setItem(UNIVERSITY_KEY, user.university);
+        localStorage.setItem(UNIVERSITY_LABEL_KEY, user.university);
+      } else {
+        postUniversity.textContent = "Select your university on sign up";
+        localStorage.removeItem(UNIVERSITY_KEY);
+        localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+      }
+
+      if (user) {
+        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+      }
+    };
+
+    const storedUser =
+      parseStoredUser(localStorage.getItem(STORAGE_USER_KEY)) ||
+      (localStorage.getItem(USERNAME_KEY)
+        ? {
+            name: localStorage.getItem(USERNAME_KEY),
+            university:
+              localStorage.getItem(UNIVERSITY_LABEL_KEY) || localStorage.getItem(UNIVERSITY_KEY) || undefined,
+          }
+        : null);
+
+    if (storedUser) {
+      applyUser(storedUser);
+    }
+
+    const ensureUser = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          showMessage("error", "You must be signed in to post a study group.");
+          localStorage.removeItem(STORAGE_USER_KEY);
+          localStorage.removeItem(USERNAME_KEY);
+          localStorage.removeItem(UNIVERSITY_KEY);
+          localStorage.removeItem(UNIVERSITY_LABEL_KEY);
+          postUser.textContent = "Guest";
+          postUniversity.textContent = "Select your university on sign up";
+          return null;
+        }
+
+        const data = await response.json();
+        if (data?.user) {
+          applyUser(data.user);
+          clearMessage();
+          return data.user;
+        }
+
+        showMessage("error", "Could not determine your account details. Please sign in again.");
+        return null;
+      } catch (error) {
+        console.error("Failed to load user", error);
+        showMessage("error", "Network error verifying your account. Please refresh and try again.");
+        return null;
+      }
+    };
+
+    const formatDateTime = (value) => {
+      if (!value) return null;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    };
+
+    postForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearMessage();
+
+      const user = await ensureUser();
+      if (!user) {
+        return;
+      }
+
+      if (!user.university) {
+        showMessage("error", "Your account is missing a university. Please update your profile before posting.");
+        return;
+      }
+
+      const course = document.getElementById("course").value.trim();
+      const location = document.getElementById("location").value.trim();
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
+      const maxPeople = document.getElementById("max_people").value;
+      const notes = document.getElementById("notes").value.trim();
+
+      if (!course) {
+        showMessage("error", "Course name is required.");
+        return;
+      }
+
+      const details = [
+        location ? `Location: ${location}` : null,
+        start ? `Starts: ${formatDateTime(start)}` : null,
+        end ? `Ends: ${formatDateTime(end)}` : null,
+        maxPeople ? `Current group size: ${maxPeople}` : null,
+        notes ? `Notes: ${notes}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      setLoading(true);
+
+      try {
+        const response = await fetch("/api/groups", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            name: course,
+            university: user.university,
+            description: details || undefined,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message = data?.message || "Could not post your study group. Please try again.";
+          showMessage("error", message);
+          return;
+        }
+
+        postForm.reset();
+        showMessage("success", `Study group for ${course} created!`);
+      } catch (error) {
+        console.error("Failed to create group", error);
+        showMessage("error", "Network error while posting. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    void ensureUser();
+  </script>
+</body>
+</html>

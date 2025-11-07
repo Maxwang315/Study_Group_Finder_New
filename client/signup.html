@@ -9,17 +9,19 @@
 <body>
   <main class="container" style="max-width: 400px; text-align: center;">
     <h1>Create Account</h1>
-    <form class="card form" id="signupForm" action="login.html" method="get">
-      <!-- Username -->
+    <form class="card form" id="signupForm" novalidate>
+      <div id="signupMessage" class="alert hidden" role="alert" aria-live="polite"></div>
+
+      <!-- Name -->
       <div class="field">
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" required />
+        <label for="name">Full Name</label>
+        <input id="name" name="name" type="text" autocomplete="name" required />
       </div>
 
       <!-- Email -->
       <div class="field">
         <label for="email">Email</label>
-        <input id="email" name="email" type="email" required />
+        <input id="email" name="email" type="email" autocomplete="email" required />
       </div>
 
       <!-- Password -->
@@ -45,7 +47,7 @@
       </div>
 
       <!-- Submit -->
-      <button class="btn btn-primary" type="submit">Sign Up</button>
+      <button class="btn btn-primary" type="submit" id="signupSubmit">Sign Up</button>
     </form>
 
     <p style="margin-top: 1rem;">
@@ -54,6 +56,7 @@
   </main>
 
   <script>
+  const STORAGE_USER_KEY = "sgfUser";
   const UNIVERSITY_KEY = "sgfUniversity";
   const UNIVERSITY_LABEL_KEY = "sgfUniversityLabel";
   const USERNAME_KEY = "sgfUsername";
@@ -92,29 +95,107 @@
     });
 
   // ========== Password confirmation ==========
-  document.getElementById("signupForm").addEventListener("submit", function(e) {
+  const signupForm = document.getElementById("signupForm");
+  const signupMessage = document.getElementById("signupMessage");
+  const submitButton = document.getElementById("signupSubmit");
+
+  const showMessage = (type, message) => {
+    signupMessage.textContent = message;
+    signupMessage.classList.remove("hidden", "alert-success", "alert-error");
+    signupMessage.classList.add(type === "success" ? "alert-success" : "alert-error");
+  };
+
+  const clearMessage = () => {
+    signupMessage.textContent = "";
+    signupMessage.classList.add("hidden");
+    signupMessage.classList.remove("alert-success", "alert-error");
+  };
+
+  const setLoading = (loading) => {
+    submitButton.disabled = loading;
+    submitButton.textContent = loading ? "Signing up…" : "Sign Up";
+  };
+
+  signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearMessage();
+
     const pw = document.getElementById("password").value;
-    const confirm = document.getElementById("confirm").value;
+    const confirmPw = document.getElementById("confirm").value;
     const error = document.getElementById("pwError");
     const select = document.getElementById("university");
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
 
-    if (pw !== confirm) {
-      e.preventDefault(); // stop submission
+    if (pw !== confirmPw) {
       error.style.display = "block";
-    } else {
-      error.style.display = "none";
+      showMessage("error", "Passwords do not match");
+      return;
+    }
 
-      const username = document.getElementById("username").value.trim();
-      const university = select.value;
-      const universityLabel = select.options[select.selectedIndex]?.textContent ?? university;
+    error.style.display = "none";
 
-      if (username) {
-        localStorage.setItem(USERNAME_KEY, username);
+    const university = select.value;
+    const universityLabel = select.options[select.selectedIndex]?.textContent ?? university;
+
+    if (!university) {
+      showMessage("error", "Please choose your university.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          name,
+          email,
+          password: pw,
+          university,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = data?.message || "Could not create your account. Please try again.";
+        showMessage("error", message);
+        return;
       }
-      if (university) {
-        localStorage.setItem(UNIVERSITY_KEY, university);
+
+      const user = data?.user;
+
+      if (user?.name) {
+        localStorage.setItem(USERNAME_KEY, user.name);
+      } else if (name) {
+        localStorage.setItem(USERNAME_KEY, name);
+      }
+
+      if (user?.university || university) {
+        const universityValue = user?.university ?? university;
+        localStorage.setItem(UNIVERSITY_KEY, universityValue);
         localStorage.setItem(UNIVERSITY_LABEL_KEY, universityLabel);
       }
+
+      if (user) {
+        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+      }
+
+      showMessage("success", "Account created! Redirecting…");
+
+      setTimeout(() => {
+        window.location.href = "studyGroupFinderMain.html";
+      }, 800);
+    } catch (fetchError) {
+      console.error(fetchError);
+      showMessage("error", "Network error creating account. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   });
 
